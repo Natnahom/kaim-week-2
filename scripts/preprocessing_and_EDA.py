@@ -6,11 +6,6 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-# Load the data
-# data = pd.read_csv('path_to_your_data.csv')  # Replace with your dataset path
-
-# Task 1.1: User Behavior on Applications
-
 def test_user_behavior(data):
 
     # Task 1.1: User Behavior on Applications
