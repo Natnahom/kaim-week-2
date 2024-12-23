@@ -40,6 +40,7 @@ def experience_analytics(data):
     data['Avg RTT UL (ms)'] = data['Avg RTT UL (ms)'].fillna(data['Avg RTT UL (ms)'].mean())
     data['Avg Bearer TP DL (kbps)'] = data['Avg Bearer TP DL (kbps)'].fillna(data['Avg Bearer TP DL (kbps)'].mean())
     data['Avg Bearer TP UL (kbps)'] = data['Avg Bearer TP UL (kbps)'].fillna(data['Avg Bearer TP UL (kbps)'].mean())
+    data['Total DL (Bytes)'] = data['Total DL (Bytes)'].fillna(data['Total DL (Bytes)'].mean())
     data['Handset Type'] = data['Handset Type'].fillna(data['Handset Type'].mode()[0])
 
     # Aggregate metrics
@@ -50,6 +51,7 @@ def experience_analytics(data):
         'Avg RTT UL (ms)': 'mean',
         'Avg Bearer TP DL (kbps)': 'mean',
         'Avg Bearer TP UL (kbps)': 'mean',
+        'Total DL (Bytes)': 'mean',
         'Handset Type': 'first'  # Assuming the first entry is representative
     }).reset_index()
 
@@ -94,7 +96,7 @@ def distribution_by_handset(user_metrics):
 
 # Task 3.4: K-Means clustering
 def kmeans_clustering(user_metrics):
-    features = user_metrics[['TCP Retransmission', 'RTT', 'Throughput']]
+    features = user_metrics[['TCP DL Retrans. Vol (Bytes)', 'Avg RTT DL (ms)', 'Avg Bearer TP DL (kbps)']]
     scaler = StandardScaler()
     scaled_features = scaler.fit_transform(features)
 
@@ -105,12 +107,42 @@ def kmeans_clustering(user_metrics):
 
 # Task 4.1: Assign engagement and experience scores
 def assign_scores(user_metrics, engagement_metrics):
-    # Assuming engagement_metrics is a DataFrame with user engagement data
+    # Print column names for debugging
+    print("User Metrics Columns:", user_metrics.columns)
+    print("Engagement Metrics Columns:", engagement_metrics.columns)
+
+    # Clean up column names to avoid issues with spaces
+    user_metrics.columns = user_metrics.columns.str.strip()
+
+    # Check if engagement_metrics is not empty before stripping
+    if engagement_metrics.empty:
+        print("Warning: engagement_metrics is empty.")
+        return None  # Early return if engagement_metrics is empty
+
+    engagement_metrics.columns = engagement_metrics.columns.str.strip()
+
+    # Check if the merge key exists
+    if 'MSISDN/Number' not in user_metrics.columns:
+        print("Error: 'MSISDN/Number' not found in user_metrics.")
+        return None  # Handle this case as appropriate
+
+    if 'MSISDN/Number' not in engagement_metrics.columns:
+        print("Error: 'MSISDN/Number' not found in engagement_metrics.")
+        return None  # Handle this case as appropriate
+
+    # Perform the merge
     user_metrics = user_metrics.merge(engagement_metrics, on='MSISDN/Number', how='left')
 
-    # Calculate Euclidean distances
-    engagement_scores = pairwise_distances(user_metrics[['Engagement Metric']], user_metrics[['Engagement Metric']].min(axis=0).values.reshape(1, -1))
-    experience_scores = pairwise_distances(user_metrics[['TCP Retransmission', 'RTT', 'Throughput']], user_metrics[user_metrics['Cluster'] == user_metrics['Cluster'].min()][['TCP Retransmission', 'RTT', 'Throughput']].mean().values.reshape(1, -1))
+    # Check if the merge resulted in any data
+    if user_metrics.empty:
+        print("Warning: No data found after merging.")
+        return None
+
+    # Calculate Euclidean distances for engagement and experience scores
+    engagement_scores = pairwise_distances(user_metrics[['Total DL (Bytes)']], 
+                                            user_metrics[['Total DL (Bytes)']].min(axis=0).values.reshape(1, -1))
+    experience_scores = pairwise_distances(user_metrics[['TCP DL Retrans. Vol (Bytes)', 'Avg RTT DL (ms)', 'Avg Bearer TP DL (kbps)']], 
+                                            user_metrics[user_metrics['Cluster'] == user_metrics['Cluster'].min()][['TCP DL Retrans. Vol (Bytes)', 'Avg RTT DL (ms)', 'Avg Bearer TP DL (kbps)']].mean().values.reshape(1, -1))
 
     user_metrics['Engagement Score'] = engagement_scores
     user_metrics['Experience Score'] = experience_scores
