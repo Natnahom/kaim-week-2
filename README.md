@@ -18,8 +18,7 @@ pip install psycopg2 pandas sqlalchemy python-dotenv numpy seaborn matplotlib sc
 
 Setup
 Environment Variables: Create a .env file in the root directory of your project with the following contents:
-plaintext
-Copy
+
 DB_HOST=your_database_host
 DB_PORT=your_database_port
 DB_NAME=your_database_name
@@ -83,7 +82,6 @@ scikit-learn
 statsmodels (for regression modeling)
 You can install the required packages using pip:
 
-Copy
 pip install psycopg2 pandas sqlalchemy python-dotenv numpy seaborn matplotlib scikit-learn statsmodels
 Setup
 Environment Variables: Create a .env file in the root directory of your project with the following contents:
