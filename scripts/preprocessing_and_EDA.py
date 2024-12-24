@@ -10,14 +10,15 @@ def test_user_behavior(data):
 
     # Task 1.1: User Behavior on Applications
 
-    # Aggregate per user
+    # Aggregate data per user
     user_agg = data.groupby('MSISDN/Number').agg({
-        'Dur. (ms)': 'sum',  # Total session duration
-        'Total DL (Bytes)': 'sum',  # Total download data
-        'Total UL (Bytes)': 'sum',  # Total upload data
-        'Bearer Id': 'count'  # Number of xDR sessions
+        'Dur. (ms)': 'sum',  # Total session duration for each user
+        'Total DL (Bytes)': 'sum',  # Total download data for each user
+        'Total UL (Bytes)': 'sum',  # Total upload data for each user
+        'Bearer Id': 'count'  # Count of xDR sessions per user
     }).reset_index()
 
+    # Rename columns for clarity
     user_agg.rename(columns={
         'Dur. (ms)': 'Total Session Duration (ms)',
         'Total DL (Bytes)': 'Total Download (Bytes)',
@@ -25,18 +26,18 @@ def test_user_behavior(data):
         'Bearer Id': 'Number of Sessions'
     }, inplace=True)
 
-    # Task 1.2: EDA
+    # Task 1.2: Exploratory Data Analysis (EDA)
 
-    # Handling missing values
+    # Handling missing values by filling with mean
     user_agg.fillna(user_agg.mean(), inplace=True)
 
-    # Detecting and handling outliers using IQR
+    # Detect and handle outliers using the Interquartile Range (IQR) method
     Q1 = user_agg.quantile(0.25)
     Q3 = user_agg.quantile(0.75)
     IQR = Q3 - Q1
     user_agg = user_agg[~((user_agg < (Q1 - 1.5 * IQR)) | (user_agg > (Q3 + 1.5 * IQR))).any(axis=1)]
 
-    # Descriptive statistics
+    # Descriptive statistics for the aggregated user data
     desc_stats = user_agg.describe()
 
     # Segment users into decile classes based on total session duration
@@ -47,7 +48,7 @@ def test_user_behavior(data):
     }).reset_index()
 
     # Univariate Analysis
-    # Non-Graphical
+    # Non-Graphical: Calculate dispersion parameters
     dispersion_params = user_agg[['Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']].agg(['mean', 'median', 'std'])
 
     # Graphical Analysis
@@ -55,18 +56,18 @@ def test_user_behavior(data):
     plt.title('Total Session Duration Distribution')
     plt.show()
 
-    # Bivariate Analysis
+    # Bivariate Analysis: Scatter plot of Download vs Upload Data
     sns.scatterplot(x='Total Download (Bytes)', y='Total Upload (Bytes)', data=user_agg)
     plt.title('Download vs Upload Data')
     plt.show()
 
-    # Correlation Analysis
+    # Correlation Analysis: Heatmap of correlation matrix
     correlation_matrix = user_agg.corr()
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
     plt.title('Correlation Matrix')
     plt.show()
 
-    # Dimensionality Reduction
+    # Dimensionality Reduction using PCA
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(user_agg[['Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']])
     pca = PCA(n_components=2)
@@ -74,10 +75,10 @@ def test_user_behavior(data):
 
     # Task 2: User Engagement Analysis
 
-    # Engagement metrics calculation
+    # Calculate engagement metrics
     engagement_metrics = data.groupby('MSISDN/Number').agg({
-        'Bearer Id': 'count',  # sessions frequency
-        'Dur. (ms)': 'sum',  # total duration
+        'Bearer Id': 'count',  # Sessions frequency per user
+        'Dur. (ms)': 'sum',  # Total session duration
         'Total DL (Bytes)': 'sum',
         'Total UL (Bytes)': 'sum'
     }).reset_index()
@@ -90,18 +91,18 @@ def test_user_behavior(data):
         'Total UL (Bytes)': 'Total Upload (Bytes)'
     }, inplace=True)
 
-    # Normalizing metrics
+    # Normalize engagement metrics for clustering
     engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']] = \
         (engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']] - 
         engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']].min()) / \
         (engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']].max() - 
         engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']].min())
 
-    # K-Means Clustering
+    # K-Means Clustering to identify user segments
     kmeans = KMeans(n_clusters=3)
     engagement_metrics['Cluster'] = kmeans.fit_predict(engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']])
 
-    # Cluster metrics
+    # Summarize cluster metrics
     cluster_summary = engagement_metrics.groupby('Cluster').agg({
         'Sessions Frequency': ['min', 'max', 'mean', 'sum'],
         'Total Session Duration (ms)': ['min', 'max', 'mean', 'sum'],
@@ -109,9 +110,9 @@ def test_user_behavior(data):
         'Total Upload (Bytes)': ['min', 'max', 'mean', 'sum'],
     }).reset_index()
 
-    # Top engaged users per application
+    # Identify top engaged users per application
     top_users_per_app = data.groupby('Handset Manufacturer').agg({
-        'Total DL (Bytes)': 'sum',  # or other metrics as needed
+        'Total DL (Bytes)': 'sum',  # Total download data per manufacturer
     }).reset_index().nlargest(10, 'Total DL (Bytes)')
 
     # Plotting top applications
@@ -120,13 +121,14 @@ def test_user_behavior(data):
     plt.title('Top 3 Most Engaged Handset Manufacturers')
     plt.show()
 
-    # K-Means Optimization (Elbow Method)
+    # K-Means Optimization using Elbow Method
     inertia = []
     for k in range(1, 10):
         kmeans = KMeans(n_clusters=k)
         kmeans.fit(engagement_metrics[['Sessions Frequency', 'Total Session Duration (ms)', 'Total Download (Bytes)', 'Total Upload (Bytes)']])
         inertia.append(kmeans.inertia_)
 
+    # Plotting the Elbow Method results
     plt.plot(range(1, 10), inertia)
     plt.title('Elbow Method for Optimal k')
     plt.xlabel('Number of clusters')

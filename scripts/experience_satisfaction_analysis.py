@@ -9,12 +9,11 @@ from sklearn.linear_model import LinearRegression
 from sqlalchemy import create_engine
 import os
 from dotenv import load_dotenv
-# from scripts.load_SQL_data import load_data_using_sqlalchemy
 
 # Load environment variables
 # load_dotenv()
 
-# # Database connection
+# Database connection
 # def connect_to_db():
 #     db_host = os.getenv('DB_HOST')
 #     db_port = os.getenv('DB_PORT')
@@ -30,10 +29,19 @@ from dotenv import load_dotenv
 
 # Task 3.1: Aggregate user experience metrics
 def experience_analytics(data):
-    # Check the actual column names
+    """
+    Aggregates user experience metrics from the provided data.
+    
+    Args:
+        data (pd.DataFrame): Raw data containing user metrics.
+
+    Returns:
+        pd.DataFrame: Aggregated user metrics per MSISDN/Number.
+    """
+    # Check the actual column names for debugging
     print(data.columns)
 
-    # Replace missing values with mean/mode
+    # Replace missing values with mean/mode for relevant columns
     data['TCP DL Retrans. Vol (Bytes)'] = data['TCP DL Retrans. Vol (Bytes)'].fillna(data['TCP DL Retrans. Vol (Bytes)'].mean())
     data['TCP UL Retrans. Vol (Bytes)'] = data['TCP UL Retrans. Vol (Bytes)'].fillna(data['TCP UL Retrans. Vol (Bytes)'].mean())
     data['Avg RTT DL (ms)'] = data['Avg RTT DL (ms)'].fillna(data['Avg RTT DL (ms)'].mean())
@@ -43,7 +51,7 @@ def experience_analytics(data):
     data['Total DL (Bytes)'] = data['Total DL (Bytes)'].fillna(data['Total DL (Bytes)'].mean())
     data['Handset Type'] = data['Handset Type'].fillna(data['Handset Type'].mode()[0])
 
-    # Aggregate metrics
+    # Aggregate metrics by user
     user_metrics = data.groupby('MSISDN/Number').agg({
         'TCP DL Retrans. Vol (Bytes)': 'mean',
         'TCP UL Retrans. Vol (Bytes)': 'mean',
@@ -59,6 +67,15 @@ def experience_analytics(data):
 
 # Task 3.2: Compute top, bottom, and most frequent values
 def compute_top_bottom_frequent(user_metrics):
+    """
+    Computes top, bottom, and most frequent values for specified metrics.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        dict: Top, bottom, and frequent values for various metrics.
+    """
     top_tcp = user_metrics['TCP DL Retrans. Vol (Bytes)'].nlargest(10)
     bottom_tcp = user_metrics['TCP DL Retrans. Vol (Bytes)'].nsmallest(10)
     freq_tcp = user_metrics['TCP DL Retrans. Vol (Bytes)'].value_counts().nlargest(10)
@@ -79,9 +96,20 @@ def compute_top_bottom_frequent(user_metrics):
 
 # Task 3.3: Distribution and average metrics by handset type
 def distribution_by_handset(user_metrics):
+    """
+    Analyzes and visualizes metrics distribution by handset type.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        tuple: Mean throughput and TCP retransmissions by handset type.
+    """
+    # Calculate average metrics by handset type
     throughput_by_handset = user_metrics.groupby('Handset Type')['Avg Bearer TP DL (kbps)'].mean()
     tcp_by_handset = user_metrics.groupby('Handset Type')['TCP DL Retrans. Vol (Bytes)'].mean()
 
+    # Boxplots for visual analysis
     sns.boxplot(x='Handset Type', y='Avg Bearer TP DL (kbps)', data=user_metrics)
     plt.title('Throughput Distribution by Handset Type')
     plt.xticks(rotation=45)
@@ -96,10 +124,20 @@ def distribution_by_handset(user_metrics):
 
 # Task 3.4: K-Means clustering
 def kmeans_clustering(user_metrics):
+    """
+    Performs K-Means clustering on user metrics.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        pd.DataFrame: User metrics with cluster labels.
+    """
     features = user_metrics[['TCP DL Retrans. Vol (Bytes)', 'Avg RTT DL (ms)', 'Avg Bearer TP DL (kbps)']]
     scaler = StandardScaler()
     scaled_features = scaler.fit_transform(features)
 
+    # K-Means clustering
     kmeans = KMeans(n_clusters=3, random_state=42)
     user_metrics['Cluster'] = kmeans.fit_predict(scaled_features)
 
@@ -107,6 +145,16 @@ def kmeans_clustering(user_metrics):
 
 # Task 4.1: Assign engagement and experience scores
 def assign_scores(user_metrics, engagement_metrics):
+    """
+    Assigns engagement and experience scores based on user metrics.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+        engagement_metrics (pd.DataFrame): DataFrame containing engagement metrics.
+
+    Returns:
+        pd.DataFrame: User metrics with assigned scores.
+    """
     # Print column names for debugging
     print("User Metrics Columns:", user_metrics.columns)
     print("Engagement Metrics Columns:", engagement_metrics.columns)
@@ -114,14 +162,14 @@ def assign_scores(user_metrics, engagement_metrics):
     # Clean up column names to avoid issues with spaces
     user_metrics.columns = user_metrics.columns.str.strip()
 
-    # Check if engagement_metrics is not empty before stripping
+    # Check if engagement_metrics is not empty before proceeding
     if engagement_metrics.empty:
         print("Warning: engagement_metrics is empty.")
         return None  # Early return if engagement_metrics is empty
 
     engagement_metrics.columns = engagement_metrics.columns.str.strip()
 
-    # Check if the merge key exists
+    # Check if merge keys exist
     if 'MSISDN/Number' not in user_metrics.columns:
         print("Error: 'MSISDN/Number' not found in user_metrics.")
         return None  # Handle this case as appropriate
@@ -130,7 +178,7 @@ def assign_scores(user_metrics, engagement_metrics):
         print("Error: 'MSISDN/Number' not found in engagement_metrics.")
         return None  # Handle this case as appropriate
 
-    # Perform the merge
+    # Perform the merge on MSISDN/Number
     user_metrics = user_metrics.merge(engagement_metrics, on='MSISDN/Number', how='left')
 
     # Check if the merge resulted in any data
@@ -151,6 +199,15 @@ def assign_scores(user_metrics, engagement_metrics):
 
 # Task 4.2: Satisfaction score calculation
 def calculate_satisfaction(user_metrics):
+    """
+    Calculates the satisfaction score based on engagement and experience scores.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        pd.DataFrame: Top satisfied users based on satisfaction score.
+    """
     user_metrics['Satisfaction Score'] = (user_metrics['Engagement Score'] + user_metrics['Experience Score']) / 2
     top_satisfied = user_metrics.nlargest(10, 'Satisfaction Score')
 
@@ -158,6 +215,15 @@ def calculate_satisfaction(user_metrics):
 
 # Task 4.3: Regression model for satisfaction score
 def regression_model(user_metrics):
+    """
+    Builds a linear regression model to predict satisfaction score.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        LinearRegression: Trained regression model.
+    """
     X = user_metrics[['Engagement Score', 'Experience Score']]
     y = user_metrics['Satisfaction Score']
     
@@ -168,6 +234,15 @@ def regression_model(user_metrics):
 
 # Task 4.4: K-Means on engagement and experience scores
 def kmeans_on_scores(user_metrics):
+    """
+    Performs K-Means clustering on engagement and experience scores.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        pd.DataFrame: User metrics with score clusters.
+    """
     scores = user_metrics[['Engagement Score', 'Experience Score']]
     kmeans = KMeans(n_clusters=2)
     user_metrics['Score Cluster'] = kmeans.fit_predict(scores)
@@ -176,6 +251,15 @@ def kmeans_on_scores(user_metrics):
 
 # Task 4.5: Average satisfaction and experience score per cluster
 def average_scores_per_cluster(user_metrics):
+    """
+    Calculates the average satisfaction and experience scores per cluster.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+
+    Returns:
+        pd.DataFrame: Average scores per cluster.
+    """
     avg_scores = user_metrics.groupby('Cluster').agg({
         'Satisfaction Score': 'mean',
         'Experience Score': 'mean'
@@ -185,28 +269,11 @@ def average_scores_per_cluster(user_metrics):
 
 # Task 4.6: Export final table to MySQL
 def export_to_mysql(user_metrics):
+    """
+    Exports the final user metrics DataFrame to a MySQL database.
+    
+    Args:
+        user_metrics (pd.DataFrame): DataFrame containing user metrics.
+    """
     engine = connect_to_db()
     user_metrics.to_sql('satisfaction_analysis', con=engine, if_exists='replace', index=False)
-
-# Main function
-# def main():
-#     engine = connect_to_db()
-#     data = pd.read_sql("SELECT * FROM telecom", engine)
-
-#     user_metrics = experience_analytics(data)
-#     frequent_values = compute_top_bottom_frequent(user_metrics)
-#     throughput_by_handset, tcp_by_handset = distribution_by_handset(user_metrics)
-#     clustered_metrics = kmeans_clustering(user_metrics)
-
-#     # Assuming engagement_metrics is obtained from previous analysis
-#     engagement_metrics = pd.DataFrame()  # Replace with actual engagement data
-#     user_metrics_with_scores = assign_scores(clustered_metrics, engagement_metrics)
-#     top_satisfied_customers = calculate_satisfaction(user_metrics_with_scores)
-
-#     regression_model(user_metrics_with_scores)
-#     clustered_scores = kmeans_on_scores(user_metrics_with_scores)
-#     average_cluster_scores = average_scores_per_cluster(clustered_scores)
-#     export_to_mysql(clustered_scores)
-
-# if __name__ == "__main__":
-#     main()
